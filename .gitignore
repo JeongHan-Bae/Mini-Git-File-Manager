@@ -1,0 +1,5 @@
+# Ignore .git directories anywhere in the path
+**/.git/
+
+# Ignore .gitignore files anywhere in the path
+**/.gitignore
