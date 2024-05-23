@@ -4,6 +4,13 @@ import sys
 import base64
 from typing import Optional, List, Tuple
 
+# Set the path of the Git executable
+os.environ['GIT_PYTHON_REFRESH'] = 'quiet'
+os.environ['GIT_PYTHON_GIT_EXECUTABLE'] = 'C:\\Git\\bin\\git.exe'
+
+# Now import the Git Python module
+from git import Repo
+
 from PyQt5.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -18,14 +25,12 @@ from PyQt5.QtWidgets import (
     QWidget,
     QGridLayout,
 )
-from PyQt5.QtGui import QFont, QColor, QPixmap
+from PyQt5.QtGui import QFont, QColor, QPixmap, QIcon
 from PyQt5.QtCore import Qt, QCoreApplication
-from git import Repo
 
 import hashlib
 import datetime
 
-from PyQt5.QtGui import QIcon
 
 
 def get_absolute_path() -> str:
