@@ -360,8 +360,8 @@ def recover_formats_from_gitignore(repo_path: str) -> None:
     gitignore_path: str = os.path.join(repo_path, ".gitignore")
     with open(gitignore_path, "r") as f:
         lines: List[str] = f.readlines()
-        # Filter out lines starting with '!' and '*'
-        formats = [line.strip()[1:] for line in lines if line.startswith("!")]
+        # Filter out lines starting with '!*' and '*' or '!.gitignore'
+        formats = [line.strip()[2:] for line in lines if line.startswith("!*")]
 
 
 class MainWindow(QMainWindow):
@@ -388,7 +388,7 @@ class MainWindow(QMainWindow):
         self.central_widget.setAutoFillBackground(True)
         self.central_widget.setPalette(palette)
 
-        self.setWindowOpacity(0.6875)
+        self.setWindowOpacity(0.875)
         self.setAttribute(Qt.WA_NoSystemBackground, True)
 
         # Set font
@@ -526,17 +526,40 @@ class MainWindow(QMainWindow):
 
     def commit_current(self) -> None:
         """
-        Commits the current changes in the repository.
+        Commits the current changes in the repository, excluding files ignored by .gitignore.
         """
         if path:
-            now = datetime.datetime.now()
-            commit_message = now.strftime("%Y-%m-%d-%H-%M-%S")
-            commit_changes(path, commit_message)
-            QMessageBox.information(
-                self,
-                "Commit Successful",
-                f"Changes committed with message: {commit_message}",
-            )
+            try:
+                repo = Repo(path)
+                git = repo.git
+
+                # Remove cache directory
+                cache_path = os.path.join(path, ".cache")
+                if os.path.exists(cache_path):
+                    git.rm("-r", "--cached", ".cache")
+                    os.system(f"rm -rf {cache_path}")
+
+                # Stage all changes in the current directory and subdirectories
+                git.add("--all")
+
+                # Clean untracked files
+                git.clean("-d", "-f")
+
+                now = datetime.datetime.now()
+                commit_message = now.strftime("%Y-%m-%d-%H-%M-%S")
+
+                repo.index.commit(commit_message)  # Commit changes
+                QMessageBox.information(
+                    self,
+                    "Commit Successful",
+                    f"Changes committed with message: {commit_message}",
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"An error occurred while committing changes: {str(e)}",
+                )
         else:
             QMessageBox.warning(self, "Error", "Repository path is not set.")
 
@@ -584,7 +607,7 @@ class ChangeFormatsDialog(QDialog):
         self.setGeometry(200, 200, 400, 300)  # Set a specific size for the dialog
         layout = QVBoxLayout()
 
-        self.setWindowOpacity(0.8125)
+        self.setWindowOpacity(0.9375)
 
         self.text_edit = QPlainTextEdit()
         self.text_edit.setPlainText(
@@ -635,8 +658,10 @@ class ChangeFormatsDialog(QDialog):
         """
         Accepts the changes made by the user and updates the formats accordingly.
         """
+        global formats
         new_formats = self.get_new_formats()
         if new_formats:
+            formats = new_formats
             store_settings()  # Store the new formats
             update_gitignore()  # Update gitignore
             commit_changes(path, "Updated file formats")  # Commit changes
@@ -679,7 +704,7 @@ class CommitDialog(QDialog):
             self.commit_list.addItem(self.date_list[-1])  # Adding to QListWidget
         layout.addWidget(self.commit_list)
 
-        self.setWindowOpacity(0.875)
+        self.setWindowOpacity(0.9375)
 
         # Apply font settings to the QListWidget
         font = QFont("Monospace")
@@ -853,9 +878,11 @@ def update_gitignore() -> None:
     global formats, path
     gitignore_path = os.path.join(path, ".gitignore")
     with open(gitignore_path, "w") as f:
-        for file_format in formats:
-            f.write("!" + file_format + "\n")
         f.write("*\n")
+        for file_format in formats:
+            f.write("!*" + file_format + "\n")
+        f.write("!.gitignore\n")
+
 
 
 def commit_changes(_path: str, message: str) -> None:
